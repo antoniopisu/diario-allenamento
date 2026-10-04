@@ -1,6 +1,6 @@
 // Offline support: serve the app from the cache, then refresh the cache in the background.
 // Change the version when you upload new files, so phones pick up the update.
-var CACHE = "diario-v2";
+var CACHE = "diario-v3";
 var FILES = ["./", "index.html", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", function (e) {

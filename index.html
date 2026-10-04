@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Diario">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#eef1ef" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0f1513" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f1eeed" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#151010" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" href="icon-192.png">
@@ -17,18 +17,18 @@
 /* Layout: one phone-width column. Sticky day switcher on top, then one block per exercise
    with a row per set (kg x reps) and last session's numbers beside each row. */
 :root {
-  --bg: #eef1ef; --surface: #ffffff; --ink: #15201b; --muted: #5b6a63; --line: #d5dcd8;
-  --accent: #0d6b58; --accent-ink: #ffffff; --done: #dff0ea; --warn: #9a4a12; --field: #f6f8f7;
+  --bg: #f1eeed; --surface: #ffffff; --ink: #201615; --muted: #6a5c5a; --line: #ddd5d3;
+  --accent: #b3261e; --accent-ink: #ffffff; --done: #f8e1de; --warn: #9a4a12; --field: #f8f6f5;
   --display: "Avenir Next Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
   --body: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #0f1513; --surface: #18201d; --ink: #e7edea; --muted: #94a39c; --line: #2b3632;
-  --accent: #55c7a9; --accent-ink: #0b1512; --done: #17302a; --warn: #f0a868; --field: #121917;
+  --bg: #151010; --surface: #201817; --ink: #efe8e7; --muted: #a39693; --line: #3a2e2c;
+  --accent: #ff8a80; --accent-ink: #1a0b0a; --done: #3a1c1a; --warn: #f0a868; --field: #191312;
   color-scheme: dark } }
 :root[data-theme="dark"] {
-  --bg: #0f1513; --surface: #18201d; --ink: #e7edea; --muted: #94a39c; --line: #2b3632;
-  --accent: #55c7a9; --accent-ink: #0b1512; --done: #17302a; --warn: #f0a868; --field: #121917;
+  --bg: #151010; --surface: #201817; --ink: #efe8e7; --muted: #a39693; --line: #3a2e2c;
+  --accent: #ff8a80; --accent-ink: #1a0b0a; --done: #3a1c1a; --warn: #f0a868; --field: #191312;
   color-scheme: dark }
 
 * { box-sizing: border-box }
