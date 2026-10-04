@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Diario di Allenamento</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Diario">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#eef1ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1513" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+/* Layout: one phone-width column. Sticky day switcher on top, then one block per exercise
+   with a row per set (kg x reps) and last session's numbers beside each row. */
+:root {
+  --bg: #eef1ef; --surface: #ffffff; --ink: #15201b; --muted: #5b6a63; --line: #d5dcd8;
+  --accent: #0d6b58; --accent-ink: #ffffff; --done: #dff0ea; --warn: #9a4a12; --field: #f6f8f7;
+  --display: "Avenir Next Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --body: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1513; --surface: #18201d; --ink: #e7edea; --muted: #94a39c; --line: #2b3632;
+  --accent: #55c7a9; --accent-ink: #0b1512; --done: #17302a; --warn: #f0a868; --field: #121917;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1513; --surface: #18201d; --ink: #e7edea; --muted: #94a39c; --line: #2b3632;
+  --accent: #55c7a9; --accent-ink: #0b1512; --done: #17302a; --warn: #f0a868; --field: #121917;
+  color-scheme: dark }
+
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.4;
+  margin: 0; padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) calc(48px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); -webkit-text-size-adjust: 100% }
+[hidden] { display: none !important }
+img { max-width: 100% }
+.wrap { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px }
+h1, h2, .num { font-family: var(--display) }
+h1 { font-size: 30px; font-weight: 700; letter-spacing: .01em; margin: 0; text-transform: uppercase; text-wrap: balance }
+h2 { font-size: 22px; font-weight: 600; margin: 0; line-height: 1.15; text-wrap: balance }
+.head { padding-top: 18px; display: flex; flex-direction: column; gap: 4px }
+.sub { color: var(--muted); font-size: 14px; margin: 0 }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
+  padding-block: 8px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--line) }
+.days { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px }
+.days button { font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase;
+  padding: 9px 4px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 6px; cursor: pointer }
+.days button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 14px }
+.meta label { color: var(--muted) }
+.meta input[type="date"] { font: inherit; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink) }
+.prog { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--muted) }
+.prog b { color: var(--ink); font-weight: 600 }
+.status { font-size: 13px; color: var(--muted); min-height: 18px }
+.status.err { color: var(--warn) }
+
+.daytitle { display: flex; flex-direction: column; gap: 2px }
+.ex { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px }
+.ex.complete { border-color: var(--accent) }
+.exhead { display: flex; gap: 10px; align-items: flex-start }
+.exhead .n { font-family: var(--display); font-size: 22px; font-weight: 700; color: var(--muted); min-width: 18px; line-height: 1.15 }
+.exhead .t { flex: 1; min-width: 0 }
+.target { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; margin: 2px 0 0 }
+.target strong { color: var(--ink); font-weight: 600 }
+.chip { font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; padding: 2px 7px; border-radius: 99px;
+  border: 1px solid var(--line); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums }
+.ex.complete .chip { background: var(--done); color: var(--accent); border-color: var(--accent) }
+.ss { font-size: 13px; color: var(--accent); font-weight: 600 }
+
+.sets { display: flex; flex-direction: column; gap: 6px }
+.set { display: grid; grid-template-columns: 22px minmax(0, 84px) 12px minmax(0, 70px) minmax(0, 1fr); gap: 6px; align-items: center }
+.set .i { font-family: var(--display); font-weight: 600; color: var(--muted); font-size: 17px }
+.set .x { text-align: center; color: var(--muted) }
+.set input { width: 100%; font: inherit; font-size: 17px; font-variant-numeric: tabular-nums; text-align: center; padding: 8px 4px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--field); color: var(--ink) }
+.set input::placeholder { color: var(--muted); opacity: .7; font-size: 14px }
+.set .prev { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; min-width: 0 }
+input:focus-visible, button:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.exfoot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap }
+.link { font: inherit; font-size: 14px; background: none; border: 0; padding: 4px 0; color: var(--accent); cursor: pointer; font-weight: 500 }
+details { font-size: 14px; flex: 1; min-width: 0 }
+summary { cursor: pointer; color: var(--muted); text-align: right }
+.hist { margin: 6px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; font-variant-numeric: tabular-nums; color: var(--muted) }
+.hist b { color: var(--ink); font-weight: 500 }
+
+.note { display: flex; flex-direction: column; gap: 6px }
+.note label { font-size: 14px; color: var(--muted) }
+.note textarea { font: inherit; width: 100%; min-height: 70px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); resize: vertical }
+.log { font-size: 14px; color: var(--muted) }
+.log ul { margin: 6px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; font-variant-numeric: tabular-nums }
+:disabled { opacity: .55 }
+.backup { border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 10px }
+.backup p { margin: 0; font-size: 14px; color: var(--muted) }
+.btns { display: flex; flex-wrap: wrap; gap: 8px }
+.btn { font: inherit; font-size: 15px; font-weight: 600; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
+.backup textarea { font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; width: 100%; min-height: 110px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); color: var(--ink) }
+.bmsg { min-height: 18px }
+.bmsg.err { color: var(--warn) }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <h1>Diario di Allenamento</h1>
+    <p class="sub">Scheda 4 giorni: petto, schiena e braccia in priorità. Segna carico e ripetizioni di ogni serie.</p>
+  </header>
+
+  <div class="bar">
+    <div class="days" id="days" role="group" aria-label="Seduta"></div>
+    <div class="meta">
+      <label for="date">Data</label>
+      <input type="date" id="date">
+      <span class="prog" id="prog"></span>
+    </div>
+    <div class="status" id="status" role="status"></div>
+  </div>
+
+  <div class="daytitle">
+    <h2 id="daytitle"></h2>
+    <p class="sub" id="dayhint"></p>
+  </div>
+
+  <div id="list" style="display:flex;flex-direction:column;gap:10px"></div>
+
+  <div class="note">
+    <label for="note">Note della seduta</label>
+    <textarea id="note" placeholder="Sensazioni, dolori, esercizi sostituiti…"></textarea>
+  </div>
+
+  <div class="log" id="log"></div>
+
+  <section class="backup" aria-labelledby="bk">
+    <h2 id="bk">Backup dei dati</h2>
+    <p>I dati restano nella memoria di questo dispositivo. Esportali ogni tanto: sono la tua copia di sicurezza e il file da usare se cambi telefono o vuoi far analizzare i progressi.</p>
+    <p id="lastbk"></p>
+    <div class="btns">
+      <button type="button" class="btn primary" id="bsave">Esporta file</button>
+      <button type="button" class="btn" id="bcopy">Copia i dati</button>
+      <button type="button" class="btn" id="bimport">Importa</button>
+    </div>
+    <div id="impbox" hidden style="display:flex;flex-direction:column;gap:8px">
+      <p>Scegli un file esportato da questa pagina oppure incolla qui sotto i dati copiati. Le sedute importate si aggiungono a quelle presenti.</p>
+      <input type="file" id="bfile" accept=".json,application/json">
+      <textarea id="btext" placeholder="Incolla qui i dati"></textarea>
+      <div class="btns"><button type="button" class="btn primary" id="bdo">Importa questi dati</button></div>
+    </div>
+    <p class="bmsg" id="bmsg" role="status"></p>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  // The plan. Exercise ids are the keys used in saved sessions: never rename them.
+  var PLAN = [
+    { id: "g1", short: "G1", title: "Giorno 1: petto e schiena", hint: "Carichi pesanti sui primi due esercizi.", ex: [
+      ["g1-panca", "Panca piana con bilanciere", 4, "5-8", "1-2", "2-3 min"],
+      ["g1-trazioni", "Trazioni presa prona (o lat machine)", 4, "6-10", "1-2", "2-3 min"],
+      ["g1-inclinata", "Panca inclinata 30° con manubri", 3, "8-12", "1-2", "2 min"],
+      ["g1-rematore", "Rematore con petto in appoggio", 3, "8-12", "1-2", "2 min"],
+      ["g1-croci", "Croci ai cavi o pec deck", 3, "12-15", "0-1", "90 s"],
+      ["g1-pulldown", "Pulldown a braccia tese", 2, "12-15", "0-1", "90 s"]
+    ]},
+    { id: "g2", short: "G2", title: "Giorno 2: gambe", hint: "Unica seduta completa per le gambe, più un richiamo per i deltoidi laterali.", ex: [
+      ["g2-squat", "Squat con bilanciere (o hack squat)", 3, "6-10", "1-2", "3 min"],
+      ["g2-rumeno", "Stacco rumeno", 3, "8-12", "1-2", "2-3 min"],
+      ["g2-legext", "Leg extension", 3, "10-15", "0-1", "90 s"],
+      ["g2-legcurl", "Leg curl seduto", 3, "10-15", "0-1", "90 s"],
+      ["g2-calf", "Calf raise in piedi", 3, "10-15", "0-1", "90 s"],
+      ["g2-laterali", "Alzate laterali con manubri", 3, "12-20", "0-1", "60-90 s"],
+      ["g2-crunch", "Crunch al cavo", 2, "10-15", "1", "60-90 s"]
+    ]},
+    { id: "g3", short: "G3", title: "Giorno 3: braccia e deltoidi", hint: "Tutto isolamento. Superset 1-2 e 3-4.", ex: [
+      ["g3-curlincl", "Curl su panca inclinata con manubri", 3, "8-12", "0-1", "", "Superset con 2"],
+      ["g3-overhead", "Estensioni tricipiti sopra la testa al cavo", 3, "10-15", "0-1", "", "Superset con 1"],
+      ["g3-curlcavo", "Curl al cavo basso o bilanciere EZ", 3, "8-12", "0-1", "", "Superset con 4"],
+      ["g3-pushdown", "Pushdown al cavo", 3, "10-15", "0-1", "", "Superset con 3"],
+      ["g3-martello", "Curl a martello", 2, "10-15", "0-1", "90 s"],
+      ["g3-latcavi", "Alzate laterali ai cavi", 4, "12-20", "0-1", "60-90 s"],
+      ["g3-reverse", "Reverse pec deck (o face pull)", 3, "12-20", "0-1", "60-90 s"]
+    ]},
+    { id: "g4", short: "G4", title: "Giorno 4: petto, schiena e braccia", hint: "Ripetizioni più alte del Giorno 1. Superset 5-6 e 7-8.", ex: [
+      ["g4-inclbil", "Panca inclinata con bilanciere o multipower", 3, "8-12", "1-2", "2 min"],
+      ["g4-lat", "Lat machine presa neutra", 3, "10-12", "1-2", "2 min"],
+      ["g4-chestpress", "Chest press alla macchina", 3, "10-15", "0-1", "2 min"],
+      ["g4-pulley", "Pulley basso", 3, "10-15", "0-1", "2 min"],
+      ["g4-french", "French press con bilanciere EZ", 3, "10-15", "0-1", "", "Superset con 6"],
+      ["g4-scott", "Curl alla panca Scott", 3, "10-15", "0-1", "", "Superset con 5"],
+      ["g4-pressa", "Pressa", 2, "10-15", "1-2", "", "Superset con 8"],
+      ["g4-legcurl", "Leg curl", 2, "10-15", "0-1", "", "Superset con 7"]
+    ]}
+  ];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var KEY = 'diario-palestra-v1', META = 'diario-palestra-meta', loaded = true, canSave = true, persistent = true;
+  var sessions = {};            // id -> saved body
+  var day = "g1", date = today();
+  var draft = { sets: {}, note: "" }, dirty = false, timer = null;
+
+  function today() { var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function plan(id) { for (var i = 0; i < PLAN.length; i++) if (PLAN[i].id === id) return PLAN[i]; return PLAN[0]; }
+  function sid() { return date + "_" + day; }
+  function fmtDate(s) { var p = s.split("-"); return p[2] + "/" + p[1] + "/" + p[0].slice(2); }
+  function num(v) { if (v == null) return null; v = String(v).replace(",", ".").trim(); if (v === "") return null; var n = Number(v); return isFinite(n) && n >= 0 ? n : null; }
+  function show(n) { return n == null ? "" : String(n).replace(".", ","); }
+  function setTxt(s) { return (s.kg != null ? show(s.kg) : "?") + " × " + (s.reps != null ? s.reps : "?"); }
+  function filled(s) { return s && s.reps != null; }
+
+  function status(msg, err) { var el = $("status"); el.textContent = msg; el.className = "status" + (err ? " err" : ""); }
+
+  // Previous sessions of the same day, newest first, strictly before the current date.
+  function previous() {
+    return Object.keys(sessions).map(function (k) { return sessions[k]; })
+      .filter(function (s) { return s.day === day && s.date < date; })
+      .sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+  }
+
+  function loadDraft() {
+    var s = sessions[sid()];
+    draft = { sets: s && s.sets ? JSON.parse(JSON.stringify(s.sets)) : {}, note: (s && s.note) || "" };
+    dirty = false;
+  }
+
+  function renderDays() {
+    $("days").innerHTML = PLAN.map(function (p) {
+      return '<button type="button" data-day="' + p.id + '" aria-pressed="' + (p.id === day) + '">' + p.short + "</button>";
+    }).join("");
+  }
+
+  function render() {
+    var p = plan(day), prev = previous();
+    renderDays();
+    $("date").value = date;
+    $("daytitle").textContent = p.title;
+    $("dayhint").textContent = p.hint + (prev.length ? " Ultima volta: " + fmtDate(prev[0].date) + "." : " Prima volta che registri questa seduta.");
+    $("list").innerHTML = p.ex.map(function (e, i) {
+      var id = e[0], rows = draft.sets[id] || [], n = Math.max(e[2], rows.length);
+      var last = null;
+      for (var k = 0; k < prev.length && !last; k++) if (prev[k].sets && prev[k].sets[id] && prev[k].sets[id].some(filled)) last = prev[k].sets[id];
+      var html = '<section class="ex" data-ex="' + id + '"><div class="exhead"><span class="n">' + (i + 1) + '</span><div class="t"><h2>' + esc(e[1]) +
+        '</h2><p class="target"><strong>' + e[2] + " × " + e[3] + "</strong> · RIR " + e[4] + (e[5] ? " · rec. " + e[5] : "") + "</p>" +
+        (e[6] ? '<span class="ss">' + esc(e[6]) + ", circa 60 s tra i due</span>" : "") + '</div><span class="chip"></span></div><div class="sets">';
+      for (var j = 0; j < n; j++) {
+        var r = rows[j] || {};
+        html += '<div class="set"><span class="i">' + (j + 1) + '</span>' +
+          '<input id="' + id + "-" + j + '-kg" data-f="kg" data-i="' + j + '" inputmode="decimal" autocomplete="off" placeholder="kg" aria-label="Serie ' + (j + 1) + ' carico in kg" value="' + show(r.kg) + '">' +
+          '<span class="x">×</span>' +
+          '<input id="' + id + "-" + j + '-reps" data-f="reps" data-i="' + j + '" inputmode="numeric" autocomplete="off" placeholder="rip." aria-label="Serie ' + (j + 1) + ' ripetizioni" value="' + show(r.reps) + '">' +
+          '<span class="prev">' + (last && last[j] && filled(last[j]) ? "prima " + setTxt(last[j]) : "") + "</span></div>";
+      }
+      html += '</div><div class="exfoot"><button type="button" class="link" data-add="' + id + '">+ serie</button>' + history(id, prev) + "</div></section>";
+      return html;
+    }).join("");
+    $("note").value = draft.note;
+    lock();
+    progress();
+    renderLog();
+  }
+
+  function history(id, prev) {
+    var items = prev.filter(function (s) { return s.sets && s.sets[id] && s.sets[id].some(filled); }).slice(0, 6);
+    if (!items.length) return "";
+    return "<details><summary>Storico (" + items.length + ")</summary><ul class='hist'>" + items.map(function (s) {
+      return "<li><b>" + fmtDate(s.date) + "</b> " + s.sets[id].filter(filled).map(setTxt).join(" · ") + "</li>";
+    }).join("") + "</ul></details>";
+  }
+
+  function progress() {
+    var p = plan(day), done = 0, tot = 0;
+    p.ex.forEach(function (e) {
+      var c = (draft.sets[e[0]] || []).filter(filled).length;
+      tot += e[2]; done += Math.min(c, e[2]);
+      var sec = document.querySelector('[data-ex="' + e[0] + '"]');
+      if (sec) { sec.classList.toggle("complete", c >= e[2]); sec.querySelector(".chip").textContent = c + "/" + e[2]; }
+    });
+    $("prog").innerHTML = "<b>" + done + "</b>/" + tot + " serie";
+  }
+
+  function renderLog() {
+    var all = Object.keys(sessions).map(function (k) { return sessions[k]; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+    if (!loaded) { $("log").textContent = ""; return; }
+    if (!all.length) { $("log").textContent = "Nessuna seduta registrata. La prima compare qui appena inserisci una serie."; return; }
+    $("log").innerHTML = "Sedute registrate: " + all.length + "<ul>" + all.slice(0, 6).map(function (s) {
+      var n = 0; Object.keys(s.sets || {}).forEach(function (k) { n += s.sets[k].filter(filled).length; });
+      return "<li>" + fmtDate(s.date) + " · " + esc(plan(s.day).title) + " · " + n + " serie</li>";
+    }).join("") + "</ul>";
+  }
+
+  function lock() {
+    var off = !canSave;
+    Array.prototype.forEach.call(document.querySelectorAll("#list input, #list button, #note"), function (el) { el.disabled = off; });
+  }
+
+  function touch() {
+    dirty = true; progress();
+    
+    clearTimeout(timer); timer = setTimeout(flush, 800);
+  }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify({ app: 'diario-palestra', version: 1, sessions: sessions })); return true; }
+    catch (e) { return false; }
+  }
+
+  function flush() {
+    clearTimeout(timer);
+    if (!dirty) return;
+    dirty = false;
+    var has = draft.note.trim() !== '' || Object.keys(draft.sets).some(function (k) { return draft.sets[k].some(function (r) { return r.kg != null || r.reps != null; }); });
+    if (has) sessions[sid()] = { date: date, day: day, sets: JSON.parse(JSON.stringify(draft.sets)), note: draft.note, updatedAt: new Date().toISOString() };
+    else delete sessions[sid()];
+    if (persist()) status('Salvato sul dispositivo alle ' + new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) + '.');
+    else status('Questo dispositivo non permette di salvare qui: i dati restano solo finché la pagina è aperta. Esportali prima di chiudere.', true);
+    renderLog();
+  }
+
+  function switchTo(d, dt) { flush(); day = d; date = dt; loadDraft(); render(); }
+
+  $("days").addEventListener("click", function (ev) { var b = ev.target.closest("[data-day]"); if (b) switchTo(b.dataset.day, date); });
+  $("date").addEventListener("change", function () { if (this.value) switchTo(day, this.value); });
+  $("list").addEventListener("input", function (ev) {
+    var el = ev.target, sec = el.closest("[data-ex]"); if (!sec || !el.dataset.f) return;
+    var id = sec.dataset.ex, i = +el.dataset.i, rows = draft.sets[id] || (draft.sets[id] = []);
+    while (rows.length <= i) rows.push({ kg: null, reps: null });
+    rows[i][el.dataset.f] = num(el.value);
+    touch();
+  });
+  $("list").addEventListener("click", function (ev) {
+    var b = ev.target.closest("[data-add]"); if (!b) return;
+    var id = b.dataset.add, e = plan(day).ex.filter(function (x) { return x[0] === id; })[0];
+    var rows = draft.sets[id] || (draft.sets[id] = []);
+    while (rows.length < e[2]) rows.push({ kg: null, reps: null });
+    rows.push({ kg: null, reps: null });
+    render();
+  });
+  $("note").addEventListener("input", function () { draft.note = this.value; touch(); });
+  document.addEventListener("visibilitychange", function () { if (document.hidden) flush(); });
+  window.addEventListener("pagehide", flush);
+
+  // ---- backup
+  function valid(b) { return b && typeof b.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.date) && /^g[1-4]$/.test(b.day) && b.sets && typeof b.sets === 'object'; }
+  function exportText() { flush(); return JSON.stringify({ app: 'diario-palestra', version: 1, exportedAt: new Date().toISOString(), sessions: sessions }, null, 1); }
+  function bmsg(m, err) { var el = $('bmsg'); el.textContent = m; el.className = 'bmsg' + (err ? ' err' : ''); }
+  function markBackup() { try { localStorage.setItem(META, JSON.stringify({ lastExport: new Date().toISOString() })); } catch (e) {} renderBackup(); }
+  function renderBackup() {
+    var last = null; try { last = (JSON.parse(localStorage.getItem(META)) || {}).lastExport; } catch (e) {}
+    var n = Object.keys(sessions).length;
+    $('lastbk').textContent = n + (n === 1 ? ' seduta salvata. ' : ' sedute salvate. ') + (last ? 'Ultima esportazione: ' + fmtDate(last.slice(0, 10)) + '.' : 'Nessuna esportazione finora.');
+  }
+  function importText(txt) {
+    var obj; try { obj = JSON.parse(txt); } catch (e) { bmsg('Questi dati non sono leggibili: usa un file esportato da questa pagina.', true); return; }
+    var src = obj && obj.sessions; if (!src || typeof src !== 'object') { bmsg('Nessuna seduta trovata in questi dati.', true); return; }
+    flush();
+    var added = 0;
+    Object.keys(src).forEach(function (k) {
+      var b = src[k]; if (!valid(b)) return;
+      var id = b.date + '_' + b.day, cur = sessions[id];
+      if (!cur || (b.updatedAt || '') > (cur.updatedAt || '')) {
+        var sets = {};
+        Object.keys(b.sets).forEach(function (e) { if (Array.isArray(b.sets[e])) sets[e] = b.sets[e].map(function (r) { return { kg: num(r && r.kg), reps: num(r && r.reps) }; }); });
+        sessions[id] = { date: b.date, day: b.day, sets: sets, note: typeof b.note === 'string' ? b.note : '', updatedAt: b.updatedAt || new Date().toISOString() };
+        added++;
+      }
+    });
+    var ok = persist(); loadDraft(); render(); renderBackup();
+    bmsg(added ? 'Importate ' + added + (added === 1 ? ' seduta.' : ' sedute.') + (ok ? '' : ' Attenzione: non salvate sul dispositivo.') : 'Niente di nuovo da importare.', !ok && added > 0);
+  }
+
+  $('bcopy').addEventListener('click', function () {
+    var txt = exportText();
+    var fallback = function () { $('impbox').hidden = false; $('btext').value = txt; $('btext').focus(); $('btext').select(); bmsg('Copia automatica non riuscita: il testo è selezionato qui sopra, copialo a mano.', true); };
+    try { navigator.clipboard.writeText(txt).then(function () { markBackup(); bmsg('Dati copiati. Incollali in una nota o dove ti servono.'); }, fallback); } catch (e) { fallback(); }
+  });
+  $('bimport').addEventListener('click', function () { $('impbox').hidden = !$('impbox').hidden; });
+  $('bfile').addEventListener('change', function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    var r = new FileReader(); r.onload = function () { importText(String(r.result)); }; r.onerror = function () { bmsg('Non riesco a leggere il file.', true); }; r.readAsText(f);
+  });
+  $('bdo').addEventListener('click', function () { var t = $('btext').value.trim(); if (t) importText(t); else bmsg('Incolla i dati o scegli un file.', true); });
+
+  // ---- start: read what this device has
+  try {
+    var raw = localStorage.getItem(KEY), saved = raw ? JSON.parse(raw) : null;
+    if (saved && saved.sessions) Object.keys(saved.sessions).forEach(function (k) { if (valid(saved.sessions[k])) sessions[k] = saved.sessions[k]; });
+    localStorage.setItem(META + '-probe', '1'); localStorage.removeItem(META + '-probe');
+  } catch (e) { persistent = false; }
+
+  (function pickDay() {
+    var all = Object.keys(sessions).map(function (k) { return sessions[k]; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+    var todays = all.filter(function (s) { return s.date === date; });
+    if (todays.length) day = todays[0].day;                                  // resume today's session
+    else if (all.length) { var idx = PLAN.map(function (p) { return p.id; }).indexOf(all[0].day); day = PLAN[(idx + 1) % PLAN.length].id; }  // next in rotation
+  })();
+  loadDraft(); render(); renderBackup();
+  if (persistent) status('Le modifiche si salvano da sole su questo dispositivo.');
+  else status('Questo dispositivo non permette di salvare qui: esporta i dati prima di chiudere la pagina.', true);
+
+  $('bsave').addEventListener('click', function () {
+    var name = 'diario-allenamento-' + today() + '.json', txt = exportText();
+    var file = null; try { file = new File([txt], name, { type: 'application/json' }); } catch (e) {}
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: 'Diario di Allenamento' }).then(function () { markBackup(); bmsg('File esportato.'); },
+        function (e) { bmsg(e && e.name === 'AbortError' ? 'Esportazione annullata.' : 'Esportazione non riuscita: usa "Copia i dati".', !(e && e.name === 'AbortError')); });
+      return;
+    }
+    try {
+      var url = URL.createObjectURL(new Blob([txt], { type: 'application/json' })), a = document.createElement('a');
+      a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      markBackup(); bmsg('File esportato.');
+    } catch (e) { bmsg('Esportazione non riuscita: usa "Copia i dati".', true); }
+  });
+
+  if (navigator.storage && navigator.storage.persist) { try { navigator.storage.persist(); } catch (e) {} }
+  if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(function () {}); }
+})();
+</script>
+</body>
+</html>
